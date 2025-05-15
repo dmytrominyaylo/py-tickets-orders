@@ -1,5 +1,6 @@
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from cinema.models import (
     Genre,
     Actor,
@@ -123,8 +124,30 @@ class OrderSerializer(serializers.ModelSerializer):
     tickets = TicketSerializerForOrderCreate(many=True)
 
     def create(self, validated_data):
+        tickets_data = validated_data.pop("tickets")
+        movie_session = tickets_data[0]["movie_session"]
+        requested_seats = {
+            (
+                ticket["row"],
+                ticket["seat"]
+            ) for ticket in tickets_data
+        }
+
+        existing_seats = set(
+            Ticket.objects.filter(
+                movie_session=movie_session,
+                row__in=[row for row, _ in requested_seats],
+                seat__in=[seat for _, seat in requested_seats],
+            ).values_list("row", "seat")
+        )
+
+        overlapping = requested_seats & existing_seats
+        if overlapping:
+            raise ValidationError({
+                "tickets": f"The seats are already taken: {list(overlapping)}"
+            })
+
         with transaction.atomic():
-            tickets_data = validated_data.pop("tickets")
             order = Order.objects.create(**validated_data)
             for ticket_data in tickets_data:
                 Ticket.objects.create(order=order, **ticket_data)

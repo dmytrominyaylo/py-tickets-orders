@@ -1,5 +1,5 @@
 from django.db.models import Count, ExpressionWrapper, F
-from django.db.models.fields import return_None, IntegerField
+from django.db.models.fields import IntegerField
 from rest_framework import viewsets
 from rest_framework.pagination import PageNumberPagination
 from cinema.models import Genre, Actor, CinemaHall, Movie, MovieSession, Order
